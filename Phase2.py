@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 url="https://docs.antigranular.com"
 
-packageLink= '/category/packages-1'  # Update with the actual URL
+packageLink= '/category/packages-1'
 response = requests.get(f'{url}{packageLink}')
 
 # Parse HTML content
