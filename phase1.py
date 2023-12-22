@@ -2,7 +2,7 @@ import sqlite3
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-import pandas as pd
+import joblib
 
 # Function to retrieve table schema from SQLite database
 def get_table_schema(table_name):
@@ -32,28 +32,18 @@ cursor = conn.cursor()
 cursor.execute("SELECT methods FROM Methods")
 methods_data = cursor.fetchall()
 
-
+# Close the database connection
+conn.close()
 
 fetched_methods = [method[0].replace("'", "").replace("{", "").replace("}", "").split(", ") for method in methods_data]
 
 flattened_methods = [method for sublist in fetched_methods for method in sublist]
-
-
 
 flattened_methods = list(set(flattened_methods))
 
 
 for i in range(len(flattened_methods)):
     flattened_methods[i] = flattened_methods[i].replace(",", ".")
-
-
-
-# print(flattened_methods)
-
-
-
-# Close the database connection
-conn.close()
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -119,17 +109,12 @@ for method in all_methods:
         if method in methods:
             labels.append(category)
 
-# Vectorizer with specific parameters
 
-# print(all_methods)
-# print()
-# print(labels)
-# print()
+def custom_tokenizer(x):
+    return x.split('.')
 
 
-
-
-tfidf_vectorizer = TfidfVectorizer(tokenizer=lambda x: x.split('.'), token_pattern=None)
+tfidf_vectorizer = TfidfVectorizer(tokenizer=custom_tokenizer, token_pattern=None)
 
 X_train, X_test, y_train, y_test = train_test_split(all_methods, labels, test_size=0.4, random_state=42)
 
@@ -159,6 +144,7 @@ grid_search.fit(X_train, y_train)
 
 # # Evaluate the best model
 best_classifier = grid_search.best_estimator_
+
 predicted = best_classifier.predict(X_test)
 
 accuracy = accuracy_score(y_test, predicted)
@@ -166,6 +152,9 @@ print(f"Best Model Accuracy: {accuracy}")
 
 # Assuming 'predicted' contains the predicted categories for each method in 'flattened_methods'
 predicted_categories = best_classifier.predict(flattened_methods)
+
+#saving the model
+joblib.dump(best_classifier, 'classification_trained_model.joblib')
 
 # Initialize a dictionary to store methods for each predicted category
 methods_by_category = {category: [] for category in set(predicted_categories)}
@@ -178,7 +167,10 @@ for method, category in zip(flattened_methods, predicted_categories):
 for category, methods in methods_by_category.items():
     print(f"Category: {category}")
     print(methods)
-    print()
 
+import json
+
+with open('methods_by_category.json', 'w') as file:
+    json.dump(methods_by_category, file)
 
 
