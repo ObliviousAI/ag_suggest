@@ -1,12 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
 
+
 # Fetch the page
 
 url="https://docs.antigranular.com"
 
 packageLink= '/category/packages-1'
 response = requests.get(f'{url}{packageLink}')
+
+print(f"{url}{packageLink}")
 
 # Parse HTML content
 soup = BeautifulSoup(response.text, 'html.parser')
@@ -166,16 +169,9 @@ for link in package_links:
                 extracted_methods.append(method.text.strip())
         
         all_methods+=extracted_methods
-                
-print(all_methods)
-
 
 
 import sqlite3
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-import pandas as pd
 
 # Function to retrieve table schema from SQLite database
 def get_table_schema(table_name):
@@ -201,14 +197,10 @@ fetched_methods = [method[0].replace("'", "").replace("{", "").replace("}", "").
 
 flattened_methods = [method for sublist in fetched_methods for method in sublist]
 
-
-
 flattened_methods = list(set(flattened_methods))
-
 
 for i in range(len(flattened_methods)):
     flattened_methods[i] = flattened_methods[i].replace(",", ".")
-
 
 def preprocess(method):
     if method.startswith('op_pandas'):
@@ -223,6 +215,55 @@ processed_all_methods = [preprocess(method) for method in all_methods]
 # Find unsupported methods in flattened_methods
 unsupported_methods = [method for method in flattened_methods if preprocess(method) not in processed_all_methods]
 
-# Display unsupported methods
-print("Unsupported Methods:")
-print(unsupported_methods)
+# # Display unsupported methods
+# print("Unsupported Methods:")
+# print(unsupported_methods)
+
+import json
+
+with open('unsupported_methods.json', 'w') as file:
+    json.dump(unsupported_methods, file)
+
+with open('supported_methods.json', 'w') as file:
+    json.dump(processed_all_methods, file)
+
+import joblib
+
+# Define the custom_tokenizer function
+def custom_tokenizer(x):
+    return x.split('.')
+
+def load_model():
+    # Load the model
+    return joblib.load('classification_trained_model.joblib')
+
+model = load_model()
+predicted_categories = model.predict(unsupported_methods)
+
+unsupported_methods_list={category: [] for category in set(predicted_categories)}
+
+for method, category in zip(unsupported_methods, predicted_categories):
+    unsupported_methods_list[category].append(method)
+
+from collections import defaultdict
+
+# Dictionary to store methods categorized by module for each category
+categorized_methods = {category: defaultdict(list) for category in unsupported_methods_list}
+
+# Function to extract module names from method strings
+def extract_module(method):
+    return method.split('.', 1)[0]  # Split by the first dot to get the module name
+
+# Iterate through each category's unsupported methods
+for category, methods in unsupported_methods_list.items():
+    for method in methods:
+        module = extract_module(method)
+        categorized_methods[category][module].append(method)
+
+# Displaying categorized methods for each category
+for category, modules in categorized_methods.items():
+    print(f"Category: {category}")
+    for module, methods in modules.items():
+        print(f"Module: {module}")
+        print(methods)
+    print()
