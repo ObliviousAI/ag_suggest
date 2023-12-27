@@ -37,8 +37,8 @@ Execute the commands using the CLI tool:
 
 - `python filename.py generate-report`: Generates a report for top libraries per category.
 - `python filename.py filter-unsupported-libraries`: Filters unsupported libraries.
-- `python filename.py exclude-methods --excluded_methods method1,method2`: Excludes specified methods.
-- `python filename.py include-methods --included_methods method3,method4`: Includes specified methods.
+- `python filename.py exclude-methods method1,method2`: Excludes specified methods.
+- `python filename.py include-methods method3,method4`: Includes specified methods.
 
 ## Dependencies
 
