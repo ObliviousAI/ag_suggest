@@ -9,8 +9,6 @@ url="https://docs.antigranular.com"
 packageLink= '/category/packages-1'
 response = requests.get(f'{url}{packageLink}')
 
-print(f"{url}{packageLink}")
-
 # Parse HTML content
 soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -261,9 +259,53 @@ for category, methods in unsupported_methods_list.items():
         categorized_methods[category][module].append(method)
 
 # Displaying categorized methods for each category
+# for category, modules in categorized_methods.items():
+#     print(f"Category: {category}")
+#     for module, methods in modules.items():
+#         method_count = len(methods)
+#         print(f"Module: {module}, Method Count: {method_count}")
+#         print(methods)
+#     print()
+
+modified_fetched_methods = [method for sublist in fetched_methods for method in sublist]
+
+
+for i in range(len(modified_fetched_methods)):
+    modified_fetched_methods[i] = modified_fetched_methods[i].replace(",", ".")
+
+
+from collections import defaultdict, Counter
+
+method_occurrences = defaultdict(lambda: defaultdict(Counter))
+
 for category, modules in categorized_methods.items():
-    print(f"Category: {category}")
     for module, methods in modules.items():
+        method_occurrences[category][module] = Counter()
+
+for method in modified_fetched_methods:
+    for category, modules in categorized_methods.items():
+        for module, methods in modules.items():
+            if method in methods:
+                method_occurrences[category][module][method] += 1
+
+# Sorting methods by occurrence within each category, module-wise
+sorted_methods_occurrences = defaultdict(lambda: defaultdict(list))
+
+for category, modules in method_occurrences.items():
+    for module, method_counter in modules.items():
+        sorted_methods_occurrences[category][module] = sorted(
+            method_counter.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+# Printing sorted methods by occurrence within each category, module-wise
+for category, modules in sorted_methods_occurrences.items():
+    print(f"Category: {category}")
+    for module, sorted_methods in modules.items():
         print(f"Module: {module}")
-        print(methods)
+        for method, count in sorted_methods:
+            print(f"Method: {method}, Count: {count}")
+        print()
     print()
+
