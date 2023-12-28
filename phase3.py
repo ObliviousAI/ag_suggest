@@ -1,13 +1,16 @@
 
-from collections import defaultdict
+from collections import defaultdict,Counter
 import json
 import sqlite3
 import typer
 import joblib
 
+
 # Connect to SQLite database
 conn = sqlite3.connect('codepeak_ag.db')
 cursor = conn.cursor()
+cursor.execute("SELECT methods FROM Methods")
+methods_data = cursor.fetchall()
 
 table_name="method_frequency"
 
@@ -93,10 +96,74 @@ def generate_report():
 
 @app.command()
 def filter_unsupported_libraries():
-    # Logic to filter out libraries already supported by Antigranular
+    # Logic to filter out libraries not supported by Antigranular
     typer.echo("Filtering unsupported libraries..")
-    print(unsupported_methods)
+    model = load_model()
+    predicted_categories = model.predict(unsupported_methods)
+    unsupported_methods_list={category: [] for category in set(predicted_categories)}
 
+    for method, category in zip(unsupported_methods, predicted_categories):
+        unsupported_methods_list[category].append(method)
+
+    # Dictionary to store methods categorized by module for each category
+    categorized_methods = {category: defaultdict(list) for category in unsupported_methods_list}
+
+    # Function to extract module names from method strings
+    def extract_module(method):
+        return method.split('.', 1)[0]  # Split by the first dot to get the module name
+
+    # Iterate through each category's unsupported methods
+    for category, methods in unsupported_methods_list.items():
+        for method in methods:
+            module = extract_module(method)
+            categorized_methods[category][module].append(method)
+
+    # Displaying categorized methods for each category
+    # for category, modules in categorized_methods.items():
+    #     print(f"Category: {category}")
+    #     for module, methods in modules.items():
+    #         method_count = len(methods)
+    #         print(f"Module: {module}, Method Count: {method_count}")
+    #         print(methods)
+    #     print()
+            
+    fetched_methods = [method[0].replace("'", "").replace("{", "").replace("}", "").split(", ") for method in methods_data]
+    modified_fetched_methods = [method for sublist in fetched_methods for method in sublist]
+
+    for i in range(len(modified_fetched_methods)):
+        modified_fetched_methods[i] = modified_fetched_methods[i].replace(",", ".")
+
+    method_occurrences = defaultdict(lambda: defaultdict(Counter))
+
+    for category, modules in categorized_methods.items():
+        for module, methods in modules.items():
+            method_occurrences[category][module] = Counter()
+
+    for method in modified_fetched_methods:
+        for category, modules in categorized_methods.items():
+            for module, methods in modules.items():
+                if method in methods:
+                    method_occurrences[category][module][method] += 1
+
+    # Sorting methods by occurrence within each category, module-wise
+    sorted_methods_occurrences = defaultdict(lambda: defaultdict(list))
+
+    for category, modules in method_occurrences.items():
+        for module, method_counter in modules.items():
+            sorted_methods_occurrences[category][module] = sorted(
+                method_counter.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+    # Printing sorted methods by occurrence within each category, module-wise
+    for category, modules in sorted_methods_occurrences.items():
+        print(f"Category: {category}")
+        for module, sorted_methods in modules.items():
+            print(f"Module: {module}")
+            for method, count in sorted_methods:
+                print(f"Method: {method}, Count: {count}")
+            print()
+        print()
 
 @app.command()
 def exclude_methods(excluded_methods: str):
@@ -123,7 +190,6 @@ def include_methods(included_methods: str):
     model=load_model()
     predicted_categories= model.predict(included_methods_list)
 
-
     for method, category in zip(included_methods_list, predicted_categories):
         methods_by_category[category].append(method)
 
@@ -132,10 +198,6 @@ def include_methods(included_methods: str):
             unsupported_methods.append(method)
     
     typer.echo(f"Included methods: {included_methods_list}")
-
-    
-
-
 
 # CLI commands for different functionalities
 app.command()(generate_report)
